@@ -2,18 +2,16 @@ import yfinance
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-def getPrice(ticker, date):
-    data = ticker.history(start=date, end=date + relativedelta(days=1),interval="1d", actions=False)
-    if len(data) == 0:
-        daysback = 1
-        while len(data) == 0:
-            start=date + relativedelta(days=-1*daysback)
-            data = ticker.history(start=start, end=start + relativedelta(days=1),interval="1d", actions=False)
-            daysback += 1
-    return {
-        "date" : data.index[0].strftime("%Y-%m-%d"),
-        "price" : (data["High"][0] + data["Low"][0])/2
-    }
+def getPrice(data, date):
+    while True:
+        if date in data.index:
+            row = data.loc[date]
+            return {
+                "date" : date.strftime("%Y-%m-%d"),
+                "price" : (row["High"] + row["Low"])/2
+            }
+        else:
+            date = date - relativedelta(days=1)
     
 
 tickerName = input("Enter Ticker Name: ")
@@ -40,43 +38,45 @@ amountperMonth = int(input("How much would you buy per month: "))
 ticker = yfinance.Ticker(tickerName)
 totalAmountInvested = 0
 sharesOwnedDCA = 0
-startingPrice = getPrice(ticker, startDate)["price"]
-endPrice = getPrice(ticker, endDate)["price"]
+data = ticker.history(start=startDate, end=endDate + relativedelta(days=1),interval="1d", actions=False)
+startingPrice = getPrice(data, startDate)["price"]
+endPrice = getPrice(data, startDate)["price"]
 currentDate = startDate
 balanceDCA = 0
+
 while endDate >= currentDate:
-    data = getPrice(ticker, currentDate)
+    dateData = getPrice(data, currentDate)
     if totalAmountInvested == 0:
         totalAmountInvested = initialInvestment
-        newShares = initialInvestment/data["price"]
+        newShares = initialInvestment/dateData["price"]
         if newShares < 100 and tokyoMode:
             balanceDCA = initialInvestment
-            print("{} Can't buy stock, Total Balance Available: {}".format(data["date"], balanceDCA))
+            print("{} Can't buy stock, Total Balance Available: {}".format(dateData["date"], balanceDCA))
         elif newShares >= 100  and tokyoMode:
             buyableShares = newShares//100 * 100
             sharesOwnedDCA += buyableShares
-            balanceDCA = (newShares%100) * data["price"]
-            print("{} Bought {} shares, Total Balance Available: {}".format(data["date"], buyableShares, balanceDCA))
+            balanceDCA = (newShares%100) * dateData["price"]
+            print("{} Bought {} shares, Total Balance Available: {}".format(dateData["date"], buyableShares, balanceDCA))
         else:
             sharesOwnedDCA += newShares
-            print("{} Bought {} shares for {}".format(data["date"], newShares, initialInvestment))
+            print("{} Bought {} shares for {}".format(dateData["date"], newShares, initialInvestment))
         currentDate = buyDay
     else:
         totalAmountInvested += amountperMonth
         if tokyoMode:
             balanceDCA += amountperMonth
-            newShares =  balanceDCA/data["price"]
+            newShares =  balanceDCA/dateData["price"]
         if newShares < 100 and tokyoMode:
-            print("{} Can't buy stock, Total Balance Available: {}".format(data["date"], balanceDCA))
+            print("{} Can't buy stock, Total Balance Available: {}".format(dateData["date"], balanceDCA))
         elif newShares >= 100  and tokyoMode:
             buyableShares = newShares//100 * 100
             sharesOwnedDCA += buyableShares
-            balanceDCA = (newShares%100) * data["price"]
-            print("{} Bought {} shares, Total Balance Available: {}".format(data["date"], buyableShares, balanceDCA))
+            balanceDCA = (newShares%100) * dateData["price"]
+            print("{} Bought {} shares, Total Balance Available: {}".format(dateData["date"], buyableShares, balanceDCA))
         else:
-            newShares =  amountperMonth/data["price"]
+            newShares =  amountperMonth/dateData["price"]
             sharesOwnedDCA += newShares
-            print("{} Bought {} shares for {}".format(data["date"], newShares, amountperMonth))
+            print("{} Bought {} shares for {}".format(dateData["date"], newShares, amountperMonth))
     
     currentDate = currentDate + relativedelta(months=1)
 
